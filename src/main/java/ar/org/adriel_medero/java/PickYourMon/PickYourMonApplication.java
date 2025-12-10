@@ -1,4 +1,4 @@
-package ar.org.adriel_medero.java.PickYourMon;
+package ar.org.adriel_medero.java.pickyourmon;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
