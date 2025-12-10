@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# credenciales sensibles de base de datos
+src/main/resources/application-mysql.properties
