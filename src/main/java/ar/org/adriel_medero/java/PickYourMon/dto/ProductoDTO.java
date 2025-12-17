@@ -11,5 +11,6 @@ public class ProductoDTO {
     private BigDecimal precio;
     private String imagenUrl;
     private Integer stock;
+    private Long categoriaId; // opcional, si se quiere enviar el id de la categoría
     private String nombreCategoria; // devuelve solo el nombre de la categoría
 }

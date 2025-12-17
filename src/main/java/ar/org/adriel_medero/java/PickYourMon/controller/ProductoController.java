@@ -2,6 +2,7 @@ package ar.org.adriel_medero.java.pickyourmon.controller;
 
 import ar.org.adriel_medero.java.pickyourmon.dto.ProductoDTO;
 import ar.org.adriel_medero.java.pickyourmon.model.Producto;
+import ar.org.adriel_medero.java.pickyourmon.service.CategoriaService; // <--- Agregado (Importante)
 import ar.org.adriel_medero.java.pickyourmon.service.ProductoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,9 @@ public class ProductoController {
 
     @Autowired
     private ProductoService productoService;
+
+    @Autowired
+    private CategoriaService categoriaService;
 
     // -------------------------------- ENDPOINTS --------------------------------
 
@@ -42,7 +46,20 @@ public class ProductoController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping
+    public ResponseEntity<Void> crear(@RequestBody ProductoDTO dto) {
+        // 1. Convertimos el JSON (DTO) a un objeto real (Entidad)
+        Producto productoNuevo = convertirAEntidad(dto);
+        
+        // 2. Lo guardamos en la base de datos
+        productoService.guardarProducto(productoNuevo);
+        
+        // 3. Respondemos 201 Created
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+    
     // -------------------------------- MAPPER MANUAL (TRADUCTOR) --------------------------------
+    
     // convierte entidad (DB) a DTO (JSON limpio)
     private ProductoDTO convertirADTO(Producto producto) {
         ProductoDTO dto = new ProductoDTO();
@@ -56,7 +73,25 @@ public class ProductoController {
         // mandamos solo el nombre de la categoría y no todo el objeto
         if (producto.getCategoria() != null) {
             dto.setNombreCategoria(producto.getCategoria().getNombre());
+            dto.setCategoriaId(producto.getCategoria().getId()); // Agregamos el ID también por si el front lo necesita
         }
         return dto;
+    }
+
+    // convierte DTO (JSON) a entidad (DB) - ESTE FALTABA
+    private Producto convertirAEntidad(ProductoDTO dto) {
+        Producto producto = new Producto();
+        producto.setNombre(dto.getNombre());
+        producto.setDescripcion(dto.getDescripcion());
+        producto.setPrecio(dto.getPrecio());
+        producto.setStock(dto.getStock());
+        producto.setImagenUrl(dto.getImagenUrl());
+
+        // Buscamos la categoría real usando el servicio
+        if (dto.getCategoriaId() != null) {
+            categoriaService.obtenerPorId(dto.getCategoriaId())
+                    .ifPresent(producto::setCategoria);
+        }
+        return producto;
     }
 }
