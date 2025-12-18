@@ -27,12 +27,12 @@ public class UsuarioController {
     @GetMapping
     public ResponseEntity<List<UsuarioDTO>> listarUsuarios() {
         List<Usuario> usuarios = usuarioService.listarUsuarios();
-        
+
         // convertimos la lista de entidades a DTOs para no mostrar passwords
         List<UsuarioDTO> dtos = usuarios.stream()
                 .map(this::convertirADTO)
                 .collect(Collectors.toList());
-                
+
         return new ResponseEntity<>(dtos, HttpStatus.OK);
     }
 
@@ -41,10 +41,10 @@ public class UsuarioController {
     @GetMapping("/{id}")
     public ResponseEntity<UsuarioDTO> buscarPorId(@PathVariable Long id) {
         Optional<Usuario> usuario = usuarioService.buscarPorId(id);
-        
+
         // si existe convertimos a DTO y devolvemos OK, si no, 404
         return usuario.map(value -> new ResponseEntity<>(convertirADTO(value), HttpStatus.OK))
-                      .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     // crear un nuevo usuario (Registro)
@@ -57,7 +57,7 @@ public class UsuarioController {
         }
 
         usuarioService.guardar(usuario);
-        
+
         // Devolvemos Created y el DTO (sin password)
         return new ResponseEntity<>(convertirADTO(usuario), HttpStatus.CREATED);
     }
@@ -65,11 +65,31 @@ public class UsuarioController {
     // actualizar usuario (usamos el mismo guardar pero verificando ID)
     // PUT: /api/usuarios
     @PutMapping
-    public ResponseEntity<String> actualizarUsuario(@RequestBody Usuario usuario) {
-        // pequeña validación para asegurarse que estamos actualizando algo existente
-        if (usuario.getId() != null && usuarioService.buscarPorId(usuario.getId()).isPresent()) {
+    public ResponseEntity<?> actualizarUsuario(@RequestBody Usuario usuario) {
+        // Validamos primero que envíen un ID (es obligatorio para actualizar)
+        if (usuario.getId() == null) {
+            return new ResponseEntity<>("Error: Debes enviar el ID del usuario a modificar", HttpStatus.BAD_REQUEST);
+        }
+        // buscamos el usuario original en la base de datos
+        Optional<Usuario> usuarioExistenteOpt = usuarioService.buscarPorId(usuario.getId());
+        if (usuarioExistenteOpt.isPresent()) {
+            Usuario usuarioExistente = usuarioExistenteOpt.get();
+
+            // Validamos que el email no se repita
+            // Si el email que viene es diferente al que ya tenía...
+            if (!usuario.getEmail().equals(usuarioExistente.getEmail())) {
+                // ... verificamos si ese NUEVO email ya lo tiene otra persona
+                if (usuarioService.buscarPorEmail(usuario.getEmail()).isPresent()) {
+                    return new ResponseEntity<>(
+                            "Error: El email " + usuario.getEmail() + " ya está en uso por otro usuario.",
+                            HttpStatus.BAD_REQUEST);
+                }
+            }
+
             usuarioService.guardar(usuario);
-            return new ResponseEntity<>("Usuario actualizado exitosamente", HttpStatus.OK);
+            // CAMBIO CLAVE: Devolvemos el DTO para ver los cambios en Postman
+            // inmediatamente
+            return new ResponseEntity<>(convertirADTO(usuario), HttpStatus.OK);
         } else {
             return new ResponseEntity<>("No se encontró el usuario para actualizar", HttpStatus.NOT_FOUND);
         }
@@ -87,7 +107,8 @@ public class UsuarioController {
         }
     }
 
-    // -------------------------------- BÚSQUEDAS ESPECÍFICAS --------------------------------
+    // -------------------------------- BÚSQUEDAS ESPECÍFICAS
+    // --------------------------------
 
     // buscar por Email
     // GET: /api/usuarios/buscar-email?email=ejemplo@correo.com
@@ -95,7 +116,7 @@ public class UsuarioController {
     public ResponseEntity<UsuarioDTO> buscarPorEmail(@RequestParam String email) {
         Optional<Usuario> usuario = usuarioService.buscarPorEmail(email);
         return usuario.map(value -> new ResponseEntity<>(convertirADTO(value), HttpStatus.OK))
-                      .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     // buscar por DNI
@@ -104,7 +125,7 @@ public class UsuarioController {
     public ResponseEntity<UsuarioDTO> buscarPorDni(@PathVariable String dni) {
         Optional<Usuario> usuario = usuarioService.buscarPorDni(dni);
         return usuario.map(value -> new ResponseEntity<>(convertirADTO(value), HttpStatus.OK))
-                      .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
     // buscar por nombre parcial
@@ -134,7 +155,8 @@ public class UsuarioController {
         return new ResponseEntity<>(dtos, HttpStatus.OK);
     }
 
-    // -------------------------------- MÉTODOS PRIVADOS --------------------------------
+    // -------------------------------- MÉTODOS PRIVADOS
+    // --------------------------------
 
     // convertimos de Entidad (con password) a DTO (sin password)
     private UsuarioDTO convertirADTO(Usuario usuario) {
