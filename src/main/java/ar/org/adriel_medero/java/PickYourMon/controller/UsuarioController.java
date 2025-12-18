@@ -10,45 +10,133 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/usuarios")
+@RequestMapping("/api/usuarios") // URL base: http://localhost:8080/api/usuarios
 public class UsuarioController {
 
     @Autowired
     private UsuarioService usuarioService;
 
-    // -------------------------------- ENDPOINTS --------------------------------
+    // -------------------------------- CRUD BÁSICO --------------------------------
 
-    // REGISTRO (Crear Usuario)
-    @PostMapping("/registro")
-    public ResponseEntity<UsuarioDTO> registrar(@RequestBody Usuario usuario) {
-        // Regla de negocio: Si no trae rol, le asignamos USER por defecto
-        if (usuario.getRol() == null) {
-            usuario.setRol(Rol.USER); 
-        }
-
-        // Guardamos en BD
-        usuarioService.guardar(usuario);
-        
-        // Devolvemos 201 Created y el usuario (convertido a DTO para ocultar password)
-        return ResponseEntity.status(HttpStatus.CREATED).body(convertirADTO(usuario));
-    }
-
-    // LISTAR (Para verificar que se guardaron)
+    // obtener todos los usuarios
+    // GET: /api/usuarios
     @GetMapping
-    public ResponseEntity<List<UsuarioDTO>> listar() {
+    public ResponseEntity<List<UsuarioDTO>> listarUsuarios() {
         List<Usuario> usuarios = usuarioService.listarUsuarios();
+        
+        // convertimos la lista de entidades a DTOs para no mostrar passwords
         List<UsuarioDTO> dtos = usuarios.stream()
                 .map(this::convertirADTO)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos);
+                
+        return new ResponseEntity<>(dtos, HttpStatus.OK);
     }
 
-    // -------------------------------- MAPPER MANUAL --------------------------------
-    
-    // Convertimos de Entidad (con password) a DTO (sin password)
+    // buscar usuario por ID
+    // GET: /api/usuarios/{id}
+    @GetMapping("/{id}")
+    public ResponseEntity<UsuarioDTO> buscarPorId(@PathVariable Long id) {
+        Optional<Usuario> usuario = usuarioService.buscarPorId(id);
+        
+        // si existe convertimos a DTO y devolvemos OK, si no, 404
+        return usuario.map(value -> new ResponseEntity<>(convertirADTO(value), HttpStatus.OK))
+                      .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    // crear un nuevo usuario (Registro)
+    // POST: /api/usuarios
+    @PostMapping
+    public ResponseEntity<UsuarioDTO> guardarUsuario(@RequestBody Usuario usuario) {
+        // Regla de negocio: Si no trae rol, le asignamos USER por defecto
+        if (usuario.getRol() == null) {
+            usuario.setRol(Rol.USER);
+        }
+
+        usuarioService.guardar(usuario);
+        
+        // Devolvemos Created y el DTO (sin password)
+        return new ResponseEntity<>(convertirADTO(usuario), HttpStatus.CREATED);
+    }
+
+    // actualizar usuario (usamos el mismo guardar pero verificando ID)
+    // PUT: /api/usuarios
+    @PutMapping
+    public ResponseEntity<String> actualizarUsuario(@RequestBody Usuario usuario) {
+        // pequeña validación para asegurarse que estamos actualizando algo existente
+        if (usuario.getId() != null && usuarioService.buscarPorId(usuario.getId()).isPresent()) {
+            usuarioService.guardar(usuario);
+            return new ResponseEntity<>("Usuario actualizado exitosamente", HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>("No se encontró el usuario para actualizar", HttpStatus.NOT_FOUND);
+        }
+    }
+
+    // eliminar usuario
+    // DELETE: /api/usuarios/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> eliminarUsuario(@PathVariable Long id) {
+        if (usuarioService.buscarPorId(id).isPresent()) {
+            usuarioService.eliminar(id);
+            return new ResponseEntity<>("Usuario eliminado", HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>("Usuario no encontrado", HttpStatus.NOT_FOUND);
+        }
+    }
+
+    // -------------------------------- BÚSQUEDAS ESPECÍFICAS --------------------------------
+
+    // buscar por Email
+    // GET: /api/usuarios/buscar-email?email=ejemplo@correo.com
+    @GetMapping("/buscar-email")
+    public ResponseEntity<UsuarioDTO> buscarPorEmail(@RequestParam String email) {
+        Optional<Usuario> usuario = usuarioService.buscarPorEmail(email);
+        return usuario.map(value -> new ResponseEntity<>(convertirADTO(value), HttpStatus.OK))
+                      .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    // buscar por DNI
+    // GET: /api/usuarios/buscar-dni/{dni}
+    @GetMapping("/buscar-dni/{dni}")
+    public ResponseEntity<UsuarioDTO> buscarPorDni(@PathVariable String dni) {
+        Optional<Usuario> usuario = usuarioService.buscarPorDni(dni);
+        return usuario.map(value -> new ResponseEntity<>(convertirADTO(value), HttpStatus.OK))
+                      .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    // buscar por nombre parcial
+    // GET: /api/usuarios/buscar-nombre?nombre=Juan
+    @GetMapping("/buscar-nombre")
+    public ResponseEntity<List<UsuarioDTO>> buscarPorNombre(@RequestParam String nombre) {
+        List<Usuario> usuarios = usuarioService.buscarPorNombreParcial(nombre);
+        List<UsuarioDTO> dtos = usuarios.stream().map(this::convertirADTO).collect(Collectors.toList());
+        return new ResponseEntity<>(dtos, HttpStatus.OK);
+    }
+
+    // filtrar por Apellido
+    // GET: /api/usuarios/filtrar-apellido?apellido=Perez
+    @GetMapping("/filtrar-apellido")
+    public ResponseEntity<List<UsuarioDTO>> filtrarPorApellido(@RequestParam String apellido) {
+        List<Usuario> usuarios = usuarioService.filtrarPorApellido(apellido);
+        List<UsuarioDTO> dtos = usuarios.stream().map(this::convertirADTO).collect(Collectors.toList());
+        return new ResponseEntity<>(dtos, HttpStatus.OK);
+    }
+
+    // filtrar por Rol
+    // GET: /api/usuarios/filtrar-rol?rol=ADMIN
+    @GetMapping("/filtrar-rol")
+    public ResponseEntity<List<UsuarioDTO>> filtrarPorRol(@RequestParam Rol rol) {
+        List<Usuario> usuarios = usuarioService.filtrarPorRol(rol);
+        List<UsuarioDTO> dtos = usuarios.stream().map(this::convertirADTO).collect(Collectors.toList());
+        return new ResponseEntity<>(dtos, HttpStatus.OK);
+    }
+
+    // -------------------------------- MÉTODOS PRIVADOS --------------------------------
+
+    // convertimos de Entidad (con password) a DTO (sin password)
     private UsuarioDTO convertirADTO(Usuario usuario) {
         UsuarioDTO dto = new UsuarioDTO();
         dto.setId(usuario.getId());

@@ -35,7 +35,19 @@ public class UsuarioService {
         usuarioRepository.deleteById(id);
     }
 
-    public java.util.Optional<Usuario> buscarPorNombreUsuario(String nombreUsuario) {
-        return usuarioRepository.findByNombre(nombreUsuario);
+    public List<Usuario> buscarPorNombreParcial(String nombreParcial) {
+        return usuarioRepository.findByNombreContainingIgnoreCase(nombreParcial);
+    }
+
+    public List<Usuario> filtrarPorApellido(String apellidoParcial) {
+        return usuarioRepository.findByApellidoContainingIgnoreCase(apellidoParcial);
+    }
+
+    public Optional<Usuario> buscarPorDni(String dni) {
+        return usuarioRepository.findByDni(dni);
+    }
+
+    public List<Usuario> filtrarPorRol(ar.org.adriel_medero.java.pickyourmon.model.enums.Rol rol) {
+        return usuarioRepository.findByRol(rol);
     }
 }
