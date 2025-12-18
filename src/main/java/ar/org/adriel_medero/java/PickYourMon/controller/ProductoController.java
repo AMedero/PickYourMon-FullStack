@@ -2,7 +2,7 @@ package ar.org.adriel_medero.java.pickyourmon.controller;
 
 import ar.org.adriel_medero.java.pickyourmon.dto.ProductoDTO;
 import ar.org.adriel_medero.java.pickyourmon.model.Producto;
-import ar.org.adriel_medero.java.pickyourmon.service.CategoriaService; // <--- Agregado (Importante)
+import ar.org.adriel_medero.java.pickyourmon.service.CategoriaService;
 import ar.org.adriel_medero.java.pickyourmon.service.ProductoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -73,12 +73,12 @@ public class ProductoController {
         // mandamos solo el nombre de la categoría y no todo el objeto
         if (producto.getCategoria() != null) {
             dto.setNombreCategoria(producto.getCategoria().getNombre());
-            dto.setCategoriaId(producto.getCategoria().getId()); // Agregamos el ID también por si el front lo necesita
+            dto.setCategoriaId(producto.getCategoria().getId()); // se agrega el ID de la categoría por si es necesario
         }
         return dto;
     }
 
-    // convierte DTO (JSON) a entidad (DB) - ESTE FALTABA
+    // convierte DTO (JSON) a entidad (DB)
     private Producto convertirAEntidad(ProductoDTO dto) {
         Producto producto = new Producto();
         producto.setNombre(dto.getNombre());
