@@ -29,7 +29,7 @@ public class OrdenController {
     @PostMapping("/comprar")
     public ResponseEntity<?> crearOrden(@RequestBody CompraDTO compraDTO) {
         try {
-            // 1. Buscamos al Usuario
+            // busqueda del usuario que hace la compra
             Usuario usuario = usuarioService.buscarPorId(compraDTO.getUsuarioId())
                     .orElse(null);
 
@@ -37,7 +37,7 @@ public class OrdenController {
                 return ResponseEntity.badRequest().body("Usuario no encontrado");
             }
 
-            // 2. Preparamos la lista de DetalleOrden para enviarla al Service
+            // lista de detalles de la orden para que el service la procese
             List<DetalleOrden> detalles = new ArrayList<>();
 
             for (DetalleCompraDTO item : compraDTO.getItems()) {
@@ -49,22 +49,32 @@ public class OrdenController {
                 DetalleOrden detalle = new DetalleOrden();
                 detalle.setProducto(productoMock);
                 detalle.setCantidad(item.getCantidad());
-                
+
                 detalles.add(detalle);
             }
 
-            // 3. Llamamos al Service que hace toda la magia (Transaction, Stock, Total)
+            // service se encarga de todo el proceso de compra (validaciones, stock, total,
+            // etc)
             Orden ordenCreada = ordenService.crearOrden(usuario, detalles);
 
-            // 4. Respondemos éxito
+            // se devuelve 201 Created con un mensaje simple
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body("Orden creada con éxito. ID: " + ordenCreada.getId() + " - Total: $" + ordenCreada.getTotal());
+                    .body("Orden creada con éxito. ID: " + ordenCreada.getId() + " - Total: $"
+                            + ordenCreada.getTotal());
 
         } catch (RuntimeException e) {
-            // Si falla por falta de stock o producto no encontrado (errores del Service)
+            // si falla por falta de stock o producto no encontrado (errores del service)
             return ResponseEntity.badRequest().body("Error al procesar la compra: " + e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Error inesperado: " + e.getMessage());
         }
+    }
+
+    // GET: Ver historial de compras de un usuario
+    @GetMapping("/usuario/{usuarioId}")
+    public ResponseEntity<List<Orden>> obtenerOrdenesPorUsuario(@PathVariable Long usuarioId) {
+        // Llamamos al método de lectura del servicio
+        List<Orden> ordenes = ordenService.listarOrdenesDeUsuario(usuarioId);
+        return ResponseEntity.ok(ordenes);
     }
 }
