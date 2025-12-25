@@ -8,6 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import ar.org.adriel_medero.java.pickyourmon.dto.LoginDTO;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,6 +18,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/usuarios") // URL base: http://localhost:8080/api/usuarios
+@CrossOrigin(origins = "*")
 public class UsuarioController {
 
     @Autowired
@@ -50,16 +54,27 @@ public class UsuarioController {
     // crear un nuevo usuario (Registro)
     // POST: /api/usuarios
     @PostMapping
-    public ResponseEntity<UsuarioDTO> guardarUsuario(@RequestBody Usuario usuario) {
-        // Regla de negocio: Si no trae rol, le asignamos USER por defecto
-        if (usuario.getRol() == null) {
-            usuario.setRol(Rol.USER);
+    public ResponseEntity<?> guardarUsuario(@RequestBody Usuario usuario) {
+        try {
+            // Verificar si el email ya existe
+            if (usuarioService.buscarPorEmail(usuario.getEmail()).isPresent()) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                                    .body("{\"message\": \"El email ya está registrado\"}");
+            }
+            
+            // Regla de negocio: Si no trae rol, le asignamos USER por defecto
+            if (usuario.getRol() == null) {
+                usuario.setRol(Rol.USER);
+            }
+
+            usuarioService.guardar(usuario);
+
+            // Devolvemos Created y el DTO (sin password)
+            return new ResponseEntity<>(convertirADTO(usuario), HttpStatus.CREATED);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body("{\"message\": \"Error al procesar el registro\"}");
         }
-
-        usuarioService.guardar(usuario);
-
-        // Devolvemos Created y el DTO (sin password)
-        return new ResponseEntity<>(convertirADTO(usuario), HttpStatus.CREATED);
     }
 
     // actualizar usuario (usamos el mismo guardar pero verificando ID)
@@ -107,8 +122,29 @@ public class UsuarioController {
         }
     }
 
-    // -------------------------------- BÚSQUEDAS ESPECÍFICAS
-    // --------------------------------
+    // -------------------------------- AUTENTICACIÓN (LOGIN) --------------------------------
+
+    // LOGIN
+    // POST: /api/usuarios/login
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginDTO loginRequest) {
+        Optional<Usuario> usuarioOpt = usuarioService.buscarPorEmail(loginRequest.getEmail());
+        
+        if (usuarioOpt.isPresent()) {
+            Usuario usuario = usuarioOpt.get();
+            // Comparamos contraseña
+            if (usuario.getPassword().equals(loginRequest.getPassword())) {
+                // Si coincide, devolvemos el usuario (sin contraseña) para guardarlo en el front
+                return new ResponseEntity<>(convertirADTO(usuario), HttpStatus.OK);
+            }
+        }
+        
+        return new ResponseEntity<>("Email o contraseña incorrectos", HttpStatus.UNAUTHORIZED);
+    }
+
+
+
+    // -------------------------------- BÚSQUEDAS ESPECÍFICAS --------------------------------
 
     // buscar por Email
     // GET: /api/usuarios/buscar-email?email=ejemplo@correo.com
@@ -155,8 +191,7 @@ public class UsuarioController {
         return new ResponseEntity<>(dtos, HttpStatus.OK);
     }
 
-    // -------------------------------- MÉTODOS PRIVADOS
-    // --------------------------------
+    // -------------------------------- MÉTODOS PRIVADOS --------------------------------
 
     // convertimos de Entidad (con password) a DTO (sin password)
     private UsuarioDTO convertirADTO(Usuario usuario) {
