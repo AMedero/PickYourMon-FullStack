@@ -57,6 +57,15 @@ public class ProductoController {
         // 3. Respondemos 201 Created
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        if (productoService.obtenerPorId(id).isPresent()) {
+            productoService.borrarProducto(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
     
     // -------------------------------- MAPPER MANUAL (TRADUCTOR) --------------------------------
     
